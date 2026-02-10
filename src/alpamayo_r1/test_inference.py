@@ -32,14 +32,13 @@ data = load_physical_aiavdataset(clip_id, t0_us=5_100_000)
 print("Dataset loaded.")
 messages = helper.create_message(data["image_frames"].flatten(0, 1))
 
-# model = AlpamayoR1.from_pretrained("nvidia/Alpamayo-R1-10B", dtype=torch.bfloat16).to("cuda")
 # 4-bit 설정 (메모리 최적화 + 에러 방지)
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_quant_type="nf4",
     bnb_4bit_compute_dtype=torch.float16  # 연산은 float16으로 수행하여 충돌 방지
 )
-
+# model = AlpamayoR1.from_pretrained("nvidia/Alpamayo-R1-10B", dtype=torch.bfloat16).to("cuda")
 model = AlpamayoR1.from_pretrained(
     "nvidia/Alpamayo-R1-10B",
     quantization_config=bnb_config,
@@ -87,3 +86,49 @@ print(
     "hardware differences, etc. With num_traj_samples=1 (set for GPU memory compatibility), "
     "variance in minADE is expected. For visual sanity checks, see notebooks/inference.ipynb"
 )
+
+# --- 시각화: 예측 궤적 vs GT 궤적을 이미지로 저장 ---
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import os
+
+output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "output")
+os.makedirs(output_dir, exist_ok=True)
+
+# 1) 궤적 비교 플롯 (Bird's Eye View)
+fig, ax = plt.subplots(figsize=(10, 8))
+ax.plot(gt_xy[0], gt_xy[1], "g-o", markersize=3, label="Ground Truth")
+for i in range(pred_xy.shape[0]):
+    label = f"Prediction {i}" if pred_xy.shape[0] > 1 else "Prediction"
+    ax.plot(pred_xy[i, 0], pred_xy[i, 1], "r-x", markersize=3, alpha=0.7, label=label)
+ax.set_xlabel("X (m)")
+ax.set_ylabel("Y (m)")
+ax.set_title(f"Trajectory: Prediction vs Ground Truth\nminADE: {min_ade:.2f}m | CoC: {extra['cot'][0][0][0]}")
+ax.legend()
+ax.set_aspect("equal")
+ax.grid(True, alpha=0.3)
+traj_path = os.path.join(output_dir, "trajectory_comparison.png")
+fig.savefig(traj_path, dpi=150, bbox_inches="tight")
+plt.close(fig)
+print(f"Trajectory plot saved: {traj_path}")
+
+# 2) 입력 카메라 이미지 저장
+from PIL import Image
+cam_frames = data["image_frames"].cpu()  # (N_cameras, num_frames, 3, H, W)
+n_cams = cam_frames.shape[0]
+fig, axes = plt.subplots(1, n_cams, figsize=(5 * n_cams, 5))
+if n_cams == 1:
+    axes = [axes]
+cam_names = ["Cross Left 120FOV", "Front Wide 120FOV", "Cross Right 120FOV", "Front Tele 30FOV"]
+for i in range(n_cams):
+    img = cam_frames[i, 0].permute(1, 2, 0).numpy()
+    img = (img - img.min()) / (img.max() - img.min() + 1e-8)
+    axes[i].imshow(img)
+    axes[i].set_title(cam_names[i] if i < len(cam_names) else f"Camera {i}")
+    axes[i].axis("off")
+fig.suptitle(f"Input Camera Views (clip: {clip_id})", fontsize=14)
+cam_path = os.path.join(output_dir, "input_cameras.png")
+fig.savefig(cam_path, dpi=150, bbox_inches="tight")
+plt.close(fig)
+print(f"Camera images saved: {cam_path}")

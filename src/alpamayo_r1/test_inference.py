@@ -33,17 +33,17 @@ print("Dataset loaded.")
 messages = helper.create_message(data["image_frames"].flatten(0, 1))
 
 # 4-bit 설정 (메모리 최적화 + 에러 방지)
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.float16  # 연산은 float16으로 수행하여 충돌 방지
-)
-# model = AlpamayoR1.from_pretrained("nvidia/Alpamayo-R1-10B", dtype=torch.bfloat16).to("cuda")
-model = AlpamayoR1.from_pretrained(
-    "nvidia/Alpamayo-R1-10B",
-    quantization_config=bnb_config,
-    device_map="auto"
-)
+# bnb_config = BitsAndBytesConfig(
+#     load_in_4bit=True,
+#     bnb_4bit_quant_type="nf4",
+#     bnb_4bit_compute_dtype=torch.float16  # 연산은 float16으로 수행하여 충돌 방지
+# )
+model = AlpamayoR1.from_pretrained("nvidia/Alpamayo-R1-10B", dtype=torch.bfloat16).to("cuda")
+# model = AlpamayoR1.from_pretrained(
+#     "nvidia/Alpamayo-R1-10B",
+#     quantization_config=bnb_config,
+#     device_map="auto"
+# )
 processor = helper.get_processor(model.tokenizer)
 
 inputs = processor.apply_chat_template(

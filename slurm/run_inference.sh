@@ -18,7 +18,7 @@ echo "=========================================="
 mkdir -p output
 
 source ar1_venv/bin/activate
-# HF_TOKEN must be set before submitting: export HF_TOKEN="your_token"
+source env.sh
 
 cd /home/tropity24/AlpamayoR1_Copy
 python -u -m alpamayo_r1.generate_reasoning_gt

@@ -218,3 +218,6 @@ __marimo__/
 # Output
 output/
 _Data/
+
+# Secrets
+env.sh

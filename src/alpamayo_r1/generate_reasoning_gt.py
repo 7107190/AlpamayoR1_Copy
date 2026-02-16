@@ -29,9 +29,39 @@ REASONING_DIR = os.path.join(DATA_DIR, "labels", "reasoning")
 REPO_ID = "nvidia/PhysicalAI-Autonomous-Vehicles"
 MAX_CHUNKS = 3146
 
+# 카메라 ZIP 로컬 경로 (background download 대상)
+LOCAL_CAM_DIR = os.path.join(DATA_DIR, "camera", "camera_front_wide_120fov")
+
 
 def ts():
     return datetime.now().strftime("[%H:%M:%S]")
+
+
+def precache_chunk_camera(chunk_name):
+    """카메라 ZIP을 HF 캐시에 미리 확보 (로컬 → 캐시 → 다운로드 순)"""
+    from huggingface_hub import hf_hub_download
+    from huggingface_hub.errors import EntryNotFoundError
+
+    cam_zip = f"camera_front_wide_120fov.{chunk_name}.zip"
+    hf_filename = f"camera/camera_front_wide_120fov/{cam_zip}"
+
+    # 1) 로컬 다운로드 경로에 있는지 (background download가 받아놓은 것)
+    local_path = os.path.join(LOCAL_CAM_DIR, cam_zip)
+    if os.path.exists(local_path):
+        return "local"
+
+    # 2) HF 캐시에 없으면 다운로드 (한 번만 받으면 이후 클립 전부 빠름)
+    try:
+        hf_hub_download(
+            repo_id=REPO_ID,
+            repo_type="dataset",
+            filename=hf_filename,
+        )
+        return "cached"
+    except EntryNotFoundError:
+        return "not_found"
+    except Exception as e:
+        return f"error:{e}"
 
 
 def get_clip_ids_from_chunk(chunk_name):
@@ -145,6 +175,9 @@ def gpu_worker(rank, world_size, max_chunks, reasoning_dir):
         if clip_ids is None:
             continue
 
+        # 카메라 데이터 미리 확보 (로컬 있으면 로컬, 없으면 HF 캐시)
+        cam_status = precache_chunk_camera(chunk_name)
+
         # Pending 클립 필터
         chunk_dir = os.path.join(reasoning_dir, chunk_name)
         pending = []
@@ -160,7 +193,7 @@ def gpu_worker(rank, world_size, max_chunks, reasoning_dir):
         total_skipped += len(clip_ids) - len(pending)
         os.makedirs(chunk_dir, exist_ok=True)
 
-        print(f"{ts()} [GPU{rank}] {chunk_name}: {len(pending)} pending / {len(clip_ids)} total")
+        print(f"{ts()} [GPU{rank}] {chunk_name}: {len(pending)} pending / {len(clip_ids)} total (cam={cam_status})")
         sys.stdout.flush()
 
         for i, clip_id in enumerate(pending):

@@ -28,7 +28,7 @@ CAM_PREFIX = "camera_front_wide_120fov"
 
 
 def ts():
-    return datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
+    return datetime.now().strftime("[%H:%M:%S]")
 
 
 def count_existing():
@@ -62,27 +62,27 @@ def download_one(repo_path, prefix, chunk_num):
             return "not_found"
         except HfHubHTTPError as e:
             if "429" in str(e):
-                print(f"{ts()} Rate limit. Waiting {RETRY_DELAY}s...", file=sys.stderr)
+                print(f"{ts()} Rate limit. Waiting {RETRY_DELAY}s...", flush=True)
                 time.sleep(RETRY_DELAY)
             else:
                 raise
         except Exception as e:
-            print(f"{ts()} Error: {e}. Retrying in 30s...", file=sys.stderr)
+            print(f"{ts()} Error: {e}. Retrying in 30s...", flush=True)
             time.sleep(30)
 
 
 if __name__ == "__main__":
     start_time = time.time()
 
-    print(f"{ts()} {'='*60}", file=sys.stderr)
-    print(f"{ts()} Interleaved Download: {MAX_CHUNKS} chunks (ego+cam)", file=sys.stderr)
-    print(f"{ts()} {'='*60}", file=sys.stderr)
+    print(f"{ts()} {'='*60}", flush=True)
+    print(f"{ts()} Interleaved Download: {MAX_CHUNKS} chunks (ego+cam)", flush=True)
+    print(f"{ts()} {'='*60}", flush=True)
 
     login(token=HF_TOKEN)
 
     ego_existing, cam_existing = count_existing()
-    print(f"{ts()} 현재 상태: ego={ego_existing}/{MAX_CHUNKS}, cam={cam_existing}/{MAX_CHUNKS}", file=sys.stderr)
-    print(f"{ts()} 남은 다운로드: ego={MAX_CHUNKS - ego_existing}, cam={MAX_CHUNKS - cam_existing}", file=sys.stderr)
+    print(f"{ts()} 현재 상태: ego={ego_existing}/{MAX_CHUNKS}, cam={cam_existing}/{MAX_CHUNKS}", flush=True)
+    print(f"{ts()} 남은 다운로드: ego={MAX_CHUNKS - ego_existing}, cam={MAX_CHUNKS - cam_existing}", flush=True)
 
     ego_done = False
     cam_done = False
@@ -126,7 +126,7 @@ if __name__ == "__main__":
                 f"ego={ego_status}, cam={cam_status} | "
                 f"{chunk_elapsed:.1f}분 | "
                 f"총 {total_downloaded}개 다운 | {elapsed:.1f}분 경과",
-                file=sys.stderr
+                flush=True
             )
 
         if ego_done and cam_done:
@@ -134,6 +134,6 @@ if __name__ == "__main__":
 
     elapsed = (time.time() - start_time) / 60
     ego_final, cam_final = count_existing()
-    print(f"{ts()} {'='*60}", file=sys.stderr)
-    print(f"{ts()} COMPLETE | ego={ego_final}, cam={cam_final} | {elapsed:.1f}분 소요", file=sys.stderr)
-    print(f"{ts()} {'='*60}", file=sys.stderr)
+    print(f"{ts()} {'='*60}", flush=True)
+    print(f"{ts()} COMPLETE | ego={ego_final}, cam={cam_final} | {elapsed:.1f}분 소요", flush=True)
+    print(f"{ts()} {'='*60}", flush=True)

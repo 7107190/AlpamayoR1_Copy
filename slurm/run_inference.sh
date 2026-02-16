@@ -2,8 +2,8 @@
 #SBATCH --job-name=reasoning_gt
 #SBATCH --partition=base_suma_rtx3090
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:6
-#SBATCH --time=12:00:00
+#SBATCH --gres=gpu:8
+#SBATCH --time=3-00:00:00
 #SBATCH --output=output/reasoning_%j.out
 #SBATCH --error=output/reasoning_%j.err
 

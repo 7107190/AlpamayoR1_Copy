@@ -29,39 +29,34 @@ REASONING_DIR = os.path.join(DATA_DIR, "labels", "reasoning")
 REPO_ID = "nvidia/PhysicalAI-Autonomous-Vehicles"
 MAX_CHUNKS = 3146
 
-# 카메라 ZIP 로컬 경로 (background download 대상)
-LOCAL_CAM_DIR = os.path.join(DATA_DIR, "camera", "camera_front_wide_120fov")
+# 4개 카메라
+CAMERAS = [
+    "camera_front_wide_120fov",
+    "camera_cross_left_120fov",
+    "camera_cross_right_120fov",
+    "camera_front_tele_30fov",
+]
 
 
 def ts():
     return datetime.now().strftime("[%H:%M:%S]")
 
 
-def precache_chunk_camera(chunk_name):
-    """카메라 ZIP을 HF 캐시에 미리 확보 (로컬 → 캐시 → 다운로드 순)"""
-    from huggingface_hub import hf_hub_download
-    from huggingface_hub.errors import EntryNotFoundError
+def check_chunk_cameras(chunk_name):
+    """4개 카메라 ZIP 로컬 존재 여부만 체크 (다운로드 안 함, 없으면 스트리밍에 맡김)"""
+    local_count = 0
+    for cam in CAMERAS:
+        cam_zip = f"{cam}.{chunk_name}.zip"
+        local_path = os.path.join(DATA_DIR, "camera", cam, cam_zip)
+        if os.path.exists(local_path):
+            local_count += 1
 
-    cam_zip = f"camera_front_wide_120fov.{chunk_name}.zip"
-    hf_filename = f"camera/camera_front_wide_120fov/{cam_zip}"
-
-    # 1) 로컬 다운로드 경로에 있는지 (background download가 받아놓은 것)
-    local_path = os.path.join(LOCAL_CAM_DIR, cam_zip)
-    if os.path.exists(local_path):
-        return "local"
-
-    # 2) HF 캐시에 없으면 다운로드 (한 번만 받으면 이후 클립 전부 빠름)
-    try:
-        hf_hub_download(
-            repo_id=REPO_ID,
-            repo_type="dataset",
-            filename=hf_filename,
-        )
-        return "cached"
-    except EntryNotFoundError:
-        return "not_found"
-    except Exception as e:
-        return f"error:{e}"
+    if local_count == 4:
+        return "all_local"
+    elif local_count > 0:
+        return f"{local_count}local/{4-local_count}stream"
+    else:
+        return "all_stream"
 
 
 def get_clip_ids_from_chunk(chunk_name):
@@ -175,8 +170,8 @@ def gpu_worker(rank, world_size, max_chunks, reasoning_dir):
         if clip_ids is None:
             continue
 
-        # 카메라 데이터 미리 확보 (로컬 있으면 로컬, 없으면 HF 캐시)
-        cam_status = precache_chunk_camera(chunk_name)
+        # 4개 카메라 로컬 존재 여부 체크 (없으면 스트리밍)
+        cam_status = check_chunk_cameras(chunk_name)
 
         # Pending 클립 필터
         chunk_dir = os.path.join(reasoning_dir, chunk_name)
